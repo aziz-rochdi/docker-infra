@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  mariadb:
+    build:
+      context: ./requirements/mariadb
+    environment:
+      - MARIADB_USER=${MARIADB_USER}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD}
+      - MARIADB_DATABASE=${MARIADB_DATABASE}
+      - MARIADB_ROOT_USERNAME=${MARIADB_ROOT_USERNAME}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MARIADB_PORT=${MARIADB_PORT}
+    container_name: mariadb
+    volumes:
+      - mariadb_volume:/var/lib/mysql
+    networks:
+      - my_network
+
+  wordpress:
+    build:
+      context: ./requirements/wordpress
+      args:
+        WORDPRESS_URL: ${WORDPRESS_URL}
+    environment:
+      - PHP_FPM_PORT=${PHP_FPM_PORT}
+    container_name: wordpress
+    volumes:
+      - wordpress_volume:/var/www/html
+    networks:
+      - my_network
+    depends_on:
+      - mariadb
+
+  nginx:
+    build:
+      context: ./requirements/nginx
+    environment:
+      - NGINX_PORT=${NGINX_PORT}
+    container_name: nginx
+    ports:
+      - "${NGINX_PORT}:${NGINX_PORT}"
+    volumes:
+      - wordpress_volume:/var/www/html
+    networks:
+      - my_network
+    depends_on:
+      - wordpress
+
+  redis:
+    build:
+      context: ./requirements/bonus/redis
+    environment:
+      - REDIS_PORT=${REDIS_PORT}
+    container_name: redis
+    networks:
+      - my_network
+
+  ftp:
+    build:
+      context: ./requirements/bonus/ftp
+      args:
+        FTP_USER: ${FTP_USER}
+        FTP_PASSWORD: ${FTP_PASSWORD}
+    container_name: ftp
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+    volumes:
+      - wordpress_volume:/var/www/html
+    networks:
+      - my_network
+    depends_on:
+      - wordpress
+
+  adminer:
+    build:
+      context: ./requirements/bonus/adminer
+      args:
+        ADMINER_SOURCE: ${ADMINER_SOURCE}
+    environment:
+      - ADMINER_PORT=${ADMINER_PORT}
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - my_network
+    depends_on: 
+      - mariadb
+
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  wordpress_volume:
+  mariadb_volume:
